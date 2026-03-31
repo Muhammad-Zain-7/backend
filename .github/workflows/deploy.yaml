@@ -1,0 +1,37 @@
+name: Build & Push (Secure)
+
+on:
+  push:
+    branches: [production]
+
+concurrency:
+    group: dev  
+    cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: [ self-hosted, ghb ]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::509399631926:role/gh-OIDS
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password \
+          | docker login --username AWS --password-stdin 509399631926.dkr.ecr.us-east-1.amazonaws.com
+      - name: Build & Push
+        run: |
+          docker build -t k8s-backend:latest .
+          docker tag k8s-backend:latest \
+          509399631926.dkr.ecr.us-east-1.amazonaws.com/k8s-backend:latest
+          docker push 509399631926.dkr.ecr.us-east-1.amazonaws.com/k8s-backend:latest
